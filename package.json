@@ -1,0 +1,11 @@
+{
+  "name": "com.charcolle.custompackagemanager",
+  "displayName": "CustomAssetImporter",
+  "version": "0.0.1",
+  "unity": "2018.4",
+  "description": "package.json editor for adding or removing my custom packages easily.",
+  "keywords": [ "editorextensions", "utilities", "packagemanager", "package" ],
+  "category": "editorextensions",
+  "dependencies": {
+  }
+}
