@@ -11,6 +11,8 @@ namespace charcolle.CustomPackageManager
     internal class CustomPackageManagerTreeView : TreeViewWithTreeModel<CustomPackageManagerPackage>
     {
 
+        public string CustomSearchText { get; set; }
+        public bool HiddenUnityOfficialPackage { get; set; }
         public event Action<CustomPackageManagerPackage> OnRenameChanged;
         public event Action<CustomPackageManagerPackage> OnContextClicked;
 
@@ -26,14 +28,31 @@ namespace charcolle.CustomPackageManager
             columnIndexForTreeFoldouts = 1;
             showAlternatingRowBackgrounds = true;
             showBorder = true;
+            multicolumnHeader.sortingChanged += OnSortingChanged;
             Reload();
         }
 
         protected override IList<TreeViewItem> BuildRows( TreeViewItem root )
         {
             var rows = base.BuildRows( root );
-            //SortIfNeeded (root, rows);
-            return rows;
+            SortIfNeeded( root, rows );
+            var result = new List<TreeViewItem>();
+            if ( !string.IsNullOrEmpty( CustomSearchText ) )
+            {
+                foreach( var item in rows )
+                {
+                    var target = ( TreeViewItem<CustomPackageManagerPackage> )item;
+                    if ( target.data.PackageName.Contains( CustomSearchText ) )
+                        result.Add( item );
+                }
+                return result;
+            } else
+            {
+                result = rows.ToList();
+            }
+            if ( HiddenUnityOfficialPackage )
+                result = result.Select( item => ( TreeViewItem<CustomPackageManagerPackage> )item ).Where( item => !item.data.PackageName.Contains( "com.unity" ) ).Select( i => (TreeViewItem)i ).ToList();
+            return result;
         }
 
         protected override void RowGUI( RowGUIArgs args )
@@ -146,7 +165,8 @@ namespace charcolle.CustomPackageManager
                     minWidth = 100,
                     maxWidth = 500,
                     autoResize = false,
-                    allowToggleVisibility = true
+                    allowToggleVisibility = true,
+                    canSort = false
                 },
             };
 
@@ -158,80 +178,115 @@ namespace charcolle.CustomPackageManager
 
         #region sort
 
-        //public enum SortOption
-        //{
-        //    Name,
-        //    Value1,
-        //    Value2,
-        //    Value3,
-        //}
+        public enum SortOption
+        {
+            PackageName,
+            Version,
+        }
 
-        //// Sort options per column
-        //SortOption[] m_SortOptions =
-        //{
-        //    SortOption.Value1,
-        //    SortOption.Value3,
-        //    SortOption.Name,
-        //    SortOption.Value1,
-        //    SortOption.Value2,
-        //    SortOption.Value3
-        //};
-        //void OnSortingChanged( MultiColumnHeader multiColumnHeader )
-        //{
-        //    SortIfNeeded( rootItem, GetRows() );
-        //}
+        // Sort options per column
+        SortOption[] m_SortOptions =
+        {
+            SortOption.PackageName,
+            SortOption.Version,
+        };
 
-        //void SortIfNeeded( TreeViewItem root, IList<TreeViewItem> rows )
-        //{
-        //    if ( rows.Count <= 1 )
-        //        return;
+        void OnSortingChanged( MultiColumnHeader multiColumnHeader )
+        {
+            SortIfNeeded( rootItem, GetRows() );
+        }
 
-        //    if ( multiColumnHeader.sortedColumnIndex == -1 )
-        //    {
-        //        return; // No column to sort for (just use the order the data are in)
-        //    }
+        void SortIfNeeded( TreeViewItem root, IList<TreeViewItem> rows )
+        {
+            if ( rows.Count <= 1 )
+                return;
 
-        //    // Sort the roots of the existing tree items
-        //    SortByMultipleColumns();
-        //    TreeToList( root, rows );
-        //    Repaint();
-        //}
+            if ( multiColumnHeader.sortedColumnIndex == -1 )
+            {
+                return; // No column to sort for (just use the order the data are in)
+            }
 
-        //void SortByMultipleColumns()
-        //{
-        //    var sortedColumns = multiColumnHeader.state.sortedColumns;
+            // Sort the roots of the existing tree items
+            SortByMultipleColumns();
+            TreeToList( root, rows );
+            Repaint();
+        }
 
-        //    if ( sortedColumns.Length == 0 )
-        //        return;
+        void SortByMultipleColumns()
+        {
+            var sortedColumns = multiColumnHeader.state.sortedColumns;
 
-        //    var myTypes = rootItem.children.Cast<TreeViewItem<CustomPackageManagerPackageClass>>();
-        //    var orderedQuery = InitialOrder( myTypes, sortedColumns );
-        //    for ( int i = 1; i < sortedColumns.Length; i++ )
-        //    {
-        //        SortOption sortOption = m_SortOptions[ sortedColumns[ i ] ];
-        //        bool ascending = multiColumnHeader.IsSortedAscending( sortedColumns[ i ] );
+            if ( sortedColumns.Length == 0 )
+                return;
 
-        //        switch ( sortOption )
-        //        {
-        //            case SortOption.Name:
-        //                orderedQuery = orderedQuery.ThenBy( l => l.data.name, ascending );
-        //                break;
-        //            case SortOption.Value1:
-        //                orderedQuery = orderedQuery.ThenBy( l => l.data.floatValue1, ascending );
-        //                break;
-        //            case SortOption.Value2:
-        //                orderedQuery = orderedQuery.ThenBy( l => l.data.floatValue2, ascending );
-        //                break;
-        //            case SortOption.Value3:
-        //                orderedQuery = orderedQuery.ThenBy( l => l.data.floatValue3, ascending );
-        //                break;
-        //        }
-        //    }
+            var myTypes = rootItem.children.Cast<TreeViewItem<CustomPackageManagerPackage>>();
+            var orderedQuery = InitialOrder( myTypes, sortedColumns );
+            for ( int i = 1; i < sortedColumns.Length; i++ )
+            {
+                SortOption sortOption = m_SortOptions[ sortedColumns[ i ] ];
+                bool ascending = multiColumnHeader.IsSortedAscending( sortedColumns[ i ] );
 
-        //    rootItem.children = orderedQuery.Cast<TreeViewItem>().ToList();
-        //}
+                switch ( sortOption )
+                {
+                    case SortOption.PackageName:
+                        orderedQuery = orderedQuery.ThenBy( l => l.data.PackageName, ascending );
+                        break;
+                }
+            }
+
+            rootItem.children = orderedQuery.Cast<TreeViewItem>().ToList();
+        }
+
+        IOrderedEnumerable<TreeViewItem<CustomPackageManagerPackage>> InitialOrder( IEnumerable<TreeViewItem<CustomPackageManagerPackage>> myTypes, int[] history )
+        {
+            SortOption sortOption = m_SortOptions[ history[ 0 ] ];
+            bool ascending = multiColumnHeader.IsSortedAscending( history[ 0 ] );
+            switch ( sortOption )
+            {
+                case SortOption.PackageName:
+                    return myTypes.Order( item => item.data.PackageName, ascending );
+            }
+            return myTypes.Order( l => l.data.name, ascending );
+        }
 
         #endregion
+
+
+        #region utility
+
+        static void TreeToList( TreeViewItem root, IList<TreeViewItem> result )
+        {
+            if ( root == null )
+                throw new NullReferenceException( "root" );
+            if ( result == null )
+                throw new NullReferenceException( "result" );
+
+            result.Clear();
+
+            if ( root.children == null )
+                return;
+
+            Stack<TreeViewItem> stack = new Stack<TreeViewItem>();
+            for ( int i = root.children.Count - 1; i >= 0; i-- )
+                stack.Push( root.children[ i ] );
+
+            while ( stack.Count > 0 )
+            {
+                TreeViewItem current = stack.Pop();
+                result.Add( current );
+
+                if ( current.hasChildren && current.children[ 0 ] != null )
+                {
+                    for ( int i = current.children.Count - 1; i >= 0; i-- )
+                    {
+                        stack.Push( current.children[ i ] );
+                    }
+                }
+            }
+        }
+
+        #endregion
+
 
     }
 

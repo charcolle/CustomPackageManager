@@ -75,6 +75,8 @@ namespace charcolle.CustomPackageManager
         private CustomPackageManagerSRTreeView scopedRegistriesTreeView;
 
         private GUIStyle noSpaceBoxStyle;
+        private GUIStyle searchTextField;
+        private GUIStyle searchFieldCancelButton;
 
         #endregion
 
@@ -87,6 +89,8 @@ namespace charcolle.CustomPackageManager
                 margin = new RectOffset( 0, 0, 0, 0 ),
                 padding = new RectOffset( 0, 0, 0, 0 ),
             };
+            searchTextField = new GUIStyle( "SearchTextField" );
+            searchFieldCancelButton = new GUIStyle( "SearchCancelButton" );
 
             {
                 packages = new List<CustomPackageManagerPackage>();
@@ -94,8 +98,6 @@ namespace charcolle.CustomPackageManager
                 var counter = 0;
                 foreach ( var pkg in dependencies.Keys )
                 {
-                    if ( pkg.Contains( "com.unity" ) )
-                        continue;
                     var p = new CustomPackageManagerPackage( pkg, dependencies[ pkg ].ToString() )
                     {
                         id = ++counter,
@@ -193,10 +195,34 @@ namespace charcolle.CustomPackageManager
         {
             if ( packages == null )
                 return;
+
             EditorGUILayout.BeginVertical();
             {
                 GUILayout.Label( "Control custom packages for PackageManager." );
                 addDependencies();
+                // search text
+                var reloadRequest = false;
+                EditorGUILayout.BeginHorizontal();
+                {
+                    var st = EditorGUILayout.TextField( packageTreeView.CustomSearchText, searchTextField );
+                    if ( GUILayout.Button( "", searchFieldCancelButton ) )
+                    {
+                        EditorGUIUtility.keyboardControl = 0;
+                        st = "";
+                    }
+                    if( st != packageTreeView.CustomSearchText )
+                        reloadRequest = true;
+                    var hiddenFlag = GUILayout.Toggle( packageTreeView.HiddenUnityOfficialPackage, "Hide official package", EditorStyles.toolbarButton, GUILayout.Width( 130 ) );
+                    if ( hiddenFlag != packageTreeView.HiddenUnityOfficialPackage )
+                        reloadRequest = true;
+                    packageTreeView.CustomSearchText = st;
+                    packageTreeView.HiddenUnityOfficialPackage = hiddenFlag;
+                    if ( reloadRequest )
+                    {
+                        packageTreeView.Reload();
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
                 EditorGUILayout.BeginVertical();
                 GUILayout.FlexibleSpace();
                 EditorGUILayout.EndVertical();

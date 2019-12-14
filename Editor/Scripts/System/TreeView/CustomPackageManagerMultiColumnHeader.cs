@@ -39,7 +39,7 @@ namespace charcolle.CustomPackageManager
                         height = DefaultGUI.defaultHeight;
                         break;
                     case Mode.MinimumHeaderWithoutSorting:
-                        canSort = false;
+                        canSort = true;
                         height = DefaultGUI.minimumHeight;
                         break;
                 }
